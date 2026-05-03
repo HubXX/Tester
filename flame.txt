@@ -209,15 +209,17 @@ local TabCredits = createTabBtn("Credits", 4)
 
 local function repositionElements(tab)
     local yPos = 0
+    local visibleElements = 0
+    
     for _, elem in ipairs(options[tab]) do
         if elem.Visible then
             elem.Position = UDim2.new(0, 0, 0, yPos)
             yPos = yPos + elem.Size.Y.Offset + 10
+            visibleElements = visibleElements + 1
         end
     end
     
     MainContent.CanvasSize = UDim2.new(0, 0, 0, math.max(yPos + 50, 1))
-    MainContent.CanvasPosition = Vector2.new(0, 0)
 end
 
 local function createDebounce(key, duration)
@@ -946,17 +948,20 @@ createOption("Auto Kick Brainrots", false, "Farm", function(state)
                 local Character = Player.Character
                 if Character and Character:FindFirstChild("HumanoidRootPart") then
                     local RootPart = Character.HumanoidRootPart
+                    
+                    -- STEP 1: Teleport player to destination
                     RootPart.CFrame = CFrame.new(Destino)
                     task.wait(0.03)
                     
+                    -- STEP 2: Fire the kick event immediately
                     pcall(function()
                         local evento = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network"):FindFirstChild("rev_KickEvent")
                         if evento then
                             evento:FireServer(0.9938004650175571)
                         end
                     end)
-                    task.wait(0.5)
                     
+                    -- STEP 3: Wait for Waves folder to detect something
                     local Waves = workspace:FindFirstChild("Waves")
                     if Waves then
                         local waveDetected = false
@@ -965,18 +970,18 @@ createOption("Auto Kick Brainrots", false, "Farm", function(state)
                         while not waveDetected and (tick() - startTime) < 5 do
                             if #Waves:GetChildren() > 0 then
                                 waveDetected = true
-                                task.wait(0.035)
+                                -- Wait exactly 50 milliseconds when something is detected
+                                task.wait(0.05)
+                                -- Then teleport player back to destination
                                 RootPart.CFrame = CFrame.new(Destino)
+                                break
                             end
                             task.wait(0.05)
                         end
-                    else
-                        local distancia = (RootPart.Position - Destino).Magnitude
-                        if distancia > 5 then
-                            task.wait(0.1)
-                        end
                     end
                 end
+                
+                -- Wait before next iteration
                 task.wait(0.1)
             end
         end)
@@ -1142,6 +1147,10 @@ repositionElements("Farm")
 repositionElements("Config")
 repositionElements("Credits")
 
+-- Initialize scroll for the Main tab on startup
+task.wait(0.1)
+MainContent.CanvasPosition = Vector2.new(0, 0)
+
 local function showTab(tabName)
     activeTab = tabName
     for tab, list in pairs(options) do
@@ -1155,6 +1164,8 @@ local function showTab(tabName)
     end
     
     repositionElements(tabName)
+    -- Reset canvas position when switching tabs
+    MainContent.CanvasPosition = Vector2.new(0, 0)
 end
 
 TabMain.MouseButton1Click:Connect(function()
@@ -1203,6 +1214,10 @@ end)
 
 FloatingButton.Activated:Connect(function()
     MainFrame.Visible = not MainFrame.Visible
+    if MainFrame.Visible then
+        -- Reset to Main tab and scroll when opening menu
+        showTab("Main")
+    end
 end)
 
 CloseBtn.Activated:Connect(function()
