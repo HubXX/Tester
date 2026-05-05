@@ -318,6 +318,7 @@ end
 
 local speedValue = 32
 local flySpeed = 32
+local kickSpeed = 25
 
 local function createSlider(name, min, max, default, tab, callback)
     createOptionState(name, default)
@@ -939,7 +940,8 @@ local ListaArmasTreino = {
     "Heaven Plate", "Mega Golden Barbell", "Neon Pulse", "Giant Gold Star Barbell"
 }
 
-local Destino = Vector3.new(699.768311, 8.75000668, 231.199585)
+local alvoCFrame = CFrame.new(699.768311, 8.75000668, 231.199585, 0, 0, 1, 0, 1, -0, -1, 0, 0)
+local tempoEspera = 3.8
 
 createOption("Auto Kick Brainrots", false, "Farm", function(state)
     if state then
@@ -947,45 +949,68 @@ createOption("Auto Kick Brainrots", false, "Farm", function(state)
             while optionStates["Auto Kick Brainrots"] do
                 local Character = Player.Character
                 if Character and Character:FindFirstChild("HumanoidRootPart") then
-                    local RootPart = Character.HumanoidRootPart
+                    local HumanoidRootPart = Character.HumanoidRootPart
+                    local Humanoid = Character:FindFirstChild("Humanoid")
+                    local PastaWaves = workspace:FindFirstChild("Waves")
+                    
+                    if not PastaWaves then task.wait(0.1) continue end
                     
                     -- STEP 1: Teleport player to destination
-                    RootPart.CFrame = CFrame.new(Destino)
+                    HumanoidRootPart.CFrame = alvoCFrame
                     task.wait(0.03)
                     
-                    -- STEP 2: Fire the kick event immediately
-                    pcall(function()
-                        local evento = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network"):FindFirstChild("rev_KickEvent")
-                        if evento then
-                            evento:FireServer(0.9938004650175571)
-                        end
-                    end)
-                    
-                    -- STEP 3: Wait for Waves folder to detect something
-                    local Waves = workspace:FindFirstChild("Waves")
-                    if Waves then
-                        local waveDetected = false
-                        local startTime = tick()
-                        
-                        while not waveDetected and (tick() - startTime) < 5 do
-                            if #Waves:GetChildren() > 0 then
-                                waveDetected = true
-                                -- Wait exactly 50 milliseconds when something is detected
-                                task.wait(0.05)
-                                -- Then teleport player back to destination
-                                RootPart.CFrame = CFrame.new(Destino)
-                                break
+                    -- STEP 2: Fire the kick event multiple times immediately
+                    for i = 1, 20 do
+                        pcall(function()
+                            local evento = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Packages"):WaitForChild("Network"):FindFirstChild("rev_KickEvent")
+                            if evento then
+                                evento:FireServer(1)
                             end
-                            task.wait(0.05)
+                        end)
+                        task.wait(0.003)
+                    end
+                    
+                    -- STEP 3: Wait for Waves folder to detect something and execute smooth movement
+                    while optionStates["Auto Kick Brainrots"] do
+                        if #PastaWaves:GetChildren() > 0 then
+                            -- Wait for the specified time while Waves has content
+                            local tempoInicioContagem = tick()
+                            while tick() - tempoInicioContagem < tempoEspera and optionStates["Auto Kick Brainrots"] and #PastaWaves:GetChildren() > 0 do
+                                if Humanoid then Humanoid.WalkSpeed = 0 end
+                                task.wait(0.01)
+                            end
+                            
+                            -- Smooth movement back to destination
+                            if optionStates["Auto Kick Brainrots"] and #PastaWaves:GetChildren() > 0 and HumanoidRootPart then
+                                local posInicial = HumanoidRootPart.Position
+                                local posFinal = alvoCFrame.Position
+                                local distancia = (posFinal - posInicial).Magnitude
+                                local duracao = distancia / kickSpeed
+                                local inicioMovimento = tick()
+                                
+                                while tick() - inicioMovimento < duracao and optionStates["Auto Kick Brainrots"] and #PastaWaves:GetChildren() > 0 and HumanoidRootPart do
+                                    local progresso = math.clamp((tick() - inicioMovimento) / duracao, 0, 1)
+                                    HumanoidRootPart.CFrame = CFrame.new(posInicial:Lerp(posFinal, progresso)) * alvoCFrame.Rotation
+                                    if Humanoid then Humanoid.WalkSpeed = 0 end
+                                    task.wait(0.015)
+                                end
+                            end
+                            
+                            if Humanoid then Humanoid.WalkSpeed = 16 end
+                            break
                         end
+                        task.wait(0.05)
                     end
                 end
                 
-                -- Wait before next iteration
                 task.wait(0.1)
             end
         end)
     end
+end)
+
+createSlider("Kick Speed", 1, 300, 25, "Farm", function(value)
+    kickSpeed = value
 end)
 
 createOption("Auto Train", false, "Farm", function(state)
@@ -1147,7 +1172,6 @@ repositionElements("Farm")
 repositionElements("Config")
 repositionElements("Credits")
 
--- Initialize scroll for the Main tab on startup
 task.wait(0.1)
 MainContent.CanvasPosition = Vector2.new(0, 0)
 
@@ -1164,7 +1188,6 @@ local function showTab(tabName)
     end
     
     repositionElements(tabName)
-    -- Reset canvas position when switching tabs
     MainContent.CanvasPosition = Vector2.new(0, 0)
 end
 
@@ -1215,7 +1238,6 @@ end)
 FloatingButton.Activated:Connect(function()
     MainFrame.Visible = not MainFrame.Visible
     if MainFrame.Visible then
-        -- Reset to Main tab and scroll when opening menu
         showTab("Main")
     end
 end)
@@ -1276,5 +1298,4 @@ Player.CharacterAdded:Connect(function()
     task.wait(1)
     isFlyActive = false
     if bg then bg:Destroy(); bg = nil end
-    if bv then bv:Destroy(); bv = nil end
-end)
+    if bv_*
