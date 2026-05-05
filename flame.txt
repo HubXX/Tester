@@ -1298,4 +1298,5 @@ Player.CharacterAdded:Connect(function()
     task.wait(1)
     isFlyActive = false
     if bg then bg:Destroy(); bg = nil end
-    if bv_*
+    if bv then bv:Destroy(); bv = nil end
+end)
